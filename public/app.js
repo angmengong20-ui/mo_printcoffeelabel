@@ -25,6 +25,7 @@ const orderEl = document.querySelector("#order");
 const printBtn = document.querySelector("#print");
 const copyBtn = document.querySelector("#copy");
 const saveBtn = document.querySelector("#save");
+const savePdfBtn = document.querySelector("#save-pdf");
 const savePop = document.querySelector("#save-pop");
 const connectBtn = document.querySelector("#connect");
 const forgetBtn = document.querySelector("#forget");
@@ -235,6 +236,7 @@ function updateCount() {
   }
   copyBtn.disabled = count === 0;
   saveBtn.disabled = count === 0;
+  savePdfBtn.disabled = count === 0;
   if (count === 0) closeSave();
 }
 
@@ -492,6 +494,7 @@ async function saveAs(kind) {
     return;
   }
   saveBtn.disabled = true;
+  savePdfBtn.disabled = true;
   setStatus("Making the file…", "busy");
   try {
     await fontsReady();
@@ -521,7 +524,7 @@ async function saveAs(kind) {
   }
 }
 
-document.querySelector("#save-pdf").addEventListener("click", () => void saveAs("pdf"));
+savePdfBtn.addEventListener("click", () => void saveAs("pdf"));
 document.querySelector("#save-png").addEventListener("click", () => void saveAs("png"));
 document.querySelector("#save-csv").addEventListener("click", () => void saveAs("csv"));
 

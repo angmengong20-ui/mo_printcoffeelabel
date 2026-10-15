@@ -451,6 +451,16 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 
 .save-menu { position: relative; }
 
+.split-btn { display: flex; }
+.split-btn > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split-btn > .more {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0;
+  padding-left: 12px;
+  padding-right: 14px;
+}
+
 .pop {
   position: absolute;
   right: 0;
@@ -564,6 +574,7 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   .dock-inner { flex-direction: column; align-items: stretch; gap: 10px; }
   .dock .bar { display: grid; grid-template-columns: auto auto 1fr; }
   .dock .bar button { padding: 10px 12px; font-size: 15px; white-space: nowrap; }
+  .dock .bar .more { padding: 10px 10px; }
   :root { --dock: 140px; }
 }
 

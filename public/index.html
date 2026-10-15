@@ -84,9 +84,11 @@
     <div class="bar">
       <button id="copy" class="ghost" type="button">Copy link</button>
       <div class="save-menu">
-        <button id="save" class="ghost" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="save-pop">Save ▾</button>
+        <div class="split-btn">
+          <button id="save-pdf" class="ghost" type="button">Save PDF</button>
+          <button id="save" class="ghost more" type="button" aria-label="More ways to save" aria-haspopup="true" aria-expanded="false" aria-controls="save-pop">▾</button>
+        </div>
         <div class="pop" id="save-pop" hidden>
-          <button id="save-pdf" type="button"><strong>PDF file</strong><small>One 40×30 mm page per sticker</small></button>
           <button id="save-png" type="button"><strong>Pictures (PNG)</strong><small>One picture per sticker, for photo printing</small></button>
           <button id="save-csv" type="button"><strong>Spreadsheet (CSV)</strong><small>For WePrint Excel/CSV printing: Drink, Sugar, Name, Size</small></button>
         </div>
