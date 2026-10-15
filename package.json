@@ -5,6 +5,6 @@
   "scripts": {
     "test": "node --test",
     "preview": "python3 -m http.server 8787 --directory public",
-    "deploy": "npx --yes wrangler pages deploy public --project-name mo-printcoffeelabel"
+    "deploy": "npx --yes wrangler deploy"
   }
 }
