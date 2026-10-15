@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Print 40×30 mm coffee labels on a DETONG P1 from Chrome. Paste the order, check the stickers, and print over Bluetooth.">
   <meta name="theme-color" content="#f3efe6">
   <title>Print coffee labels</title>
@@ -10,45 +10,81 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main>
-  <h1>Print coffee labels</h1>
-  <p class="sub">Paste an order, check each sticker, then print it on a DETONG P1. This page does not keep the order. The browser talks to the printer.</p>
-  <p class="status" id="status" role="status">Loading…</p>
+<header class="top">
+  <div class="brand">
+    <img src="favicon.svg" alt="" width="32" height="32">
+    <div>
+      <h1>Coffee labels</h1>
+      <p class="sub">Paste the order, check the stickers, print. Nothing is saved online.</p>
+    </div>
+  </div>
+  <button id="printer-chip" class="chip" type="button" aria-controls="setup">
+    <span class="dot" aria-hidden="true"></span><span id="printer-chip-text">No printer set</span>
+  </button>
+</header>
 
-  <section class="card">
-    <div class="split">
-      <label class="grow"><span>Cafe name, printed at the top</span>
+<main>
+  <details class="card step" id="setup">
+    <summary>
+      <span class="num" aria-hidden="true">1</span>
+      <span class="step-title">Sticker setup</span>
+      <span class="summary-note" id="setup-note"></span>
+    </summary>
+    <div class="setup-body">
+      <label class="field"><span>Cafe name <em>printed at the top</em></span>
         <input id="cafe" maxlength="40" autocomplete="organization" placeholder="Your cafe">
       </label>
-      <label class="grow"><span>Printer code, from the sticker</span>
-        <input id="printer" maxlength="40" autocomplete="off" spellcheck="false" placeholder="P1-1234567890">
-      </label>
-      <button id="scan-start" class="ghost" type="button">Scan barcode</button>
+      <div class="field">
+        <label for="printer"><span>Printer code <em>from the sticker on the printer</em></span></label>
+        <div class="with-btn">
+          <input id="printer" maxlength="40" autocomplete="off" spellcheck="false" placeholder="P1-1234567890">
+          <button id="scan-start" class="ghost" type="button">Scan</button>
+        </div>
+      </div>
+      <p class="hint">Leave the code blank to pick any nearby P1 printer. Close the phone app first, since only one connection works at a time. The printer sleeps after about 15 minutes.</p>
+      <div id="scan">
+        <video id="camera" playsinline muted></video>
+        <div class="bar"><button id="scan-stop" class="ghost light" type="button">Stop scanning</button></div>
+      </div>
     </div>
-    <p class="hint">Leave the code blank to pick any nearby printer whose name starts with P1. Close the phone app first. The printer sleeps after about 15 minutes.</p>
-    <div id="scan">
-      <video id="camera" playsinline muted></video>
-      <div class="bar"><button id="scan-stop" class="ghost" type="button">Stop scanning</button></div>
+  </details>
+
+  <section class="card step" aria-labelledby="order-title">
+    <div class="step-head">
+      <span class="num" aria-hidden="true">2</span>
+      <h2 class="step-title" id="order-title">Paste the order</h2>
+    </div>
+    <textarea id="order" aria-describedby="order-hint" placeholder="1. Ice latte 20% (Aya)&#10;2. Ice latte 50% (Rith) Size L&#10;3. Red lemon tea (Soriya)"></textarea>
+    <p class="hint" id="order-hint">One drink per line: drink, then a percent and Size S/M/L if written, and the name in (brackets). Pasting makes the labels right away.</p>
+    <div class="bar">
+      <button id="read" type="button">Make labels <kbd>⌘↵</kbd></button>
+      <button id="clear-order" class="ghost" type="button">Clear</button>
     </div>
   </section>
 
-  <h2>Order</h2>
-  <textarea id="order" placeholder="1. Ice latte 20% (Aya)&#10;2. Ice latte 50% (Rith) Size L&#10;3. Red lemon tea (Soriya)"></textarea>
-  <div class="bar">
-    <button id="read" class="ghost" type="button">Read orders</button>
-    <button id="add" class="ghost" type="button">Add a label</button>
-  </div>
-  <p class="hint">A line is a drink, then a percent only if it was written, a name in parentheses, and Size S, M, or L only if it was written. Nothing else is added.</p>
-
-  <h2 id="list-heading" hidden>Labels</h2>
-  <div id="list"></div>
+  <section class="step labels-step" aria-labelledby="list-heading">
+    <div class="step-head">
+      <span class="num" aria-hidden="true">3</span>
+      <h2 class="step-title" id="list-heading">Check the labels <span class="count-pill" id="list-count" hidden></span></h2>
+      <button id="clear-labels" class="link" type="button" hidden>Remove all</button>
+    </div>
+    <div id="list" class="grid"></div>
+    <div class="grid">
+      <button id="add" class="add-tile" type="button"><span aria-hidden="true">+</span> Add a label</button>
+    </div>
+  </section>
 </main>
 
 <div class="dock">
-  <p id="count">No labels yet</p>
-  <div class="bar">
-    <button id="copy" class="ghost" type="button">Copy link</button>
-    <button id="print" type="button">Connect and print</button>
+  <div class="dock-inner">
+    <div class="dock-status">
+      <p class="status" id="status" role="status">Loading…</p>
+      <div class="progress" id="progress" hidden><span id="progress-bar"></span></div>
+    </div>
+    <div class="bar">
+      <button id="copy" class="ghost" type="button">Copy link</button>
+      <button id="print" class="primary" type="button" disabled>Print</button>
+    </div>
   </div>
 </div>
 <script type="module" src="app.js"></script>
