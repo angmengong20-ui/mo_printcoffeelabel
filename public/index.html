@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Print 40×30 mm coffee labels on a DETONG P1 from Chrome. Paste the order, check the stickers, and print over Bluetooth.">
+  <meta name="theme-color" content="#f3efe6">
+  <title>Print coffee labels</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main>
+  <h1>Print coffee labels</h1>
+  <p class="sub">Paste an order, check each sticker, then print it on a DETONG P1. This page does not keep the order. The browser talks to the printer.</p>
+  <p class="status" id="status" role="status">Loading…</p>
+
+  <section class="card">
+    <div class="split">
+      <label class="grow"><span>Cafe name, printed at the top</span>
+        <input id="cafe" maxlength="40" autocomplete="organization" placeholder="Your cafe">
+      </label>
+      <label class="grow"><span>Printer code, from the sticker</span>
+        <input id="printer" maxlength="40" autocomplete="off" spellcheck="false" placeholder="P1-1234567890">
+      </label>
+      <button id="scan-start" class="ghost" type="button">Scan barcode</button>
+    </div>
+    <p class="hint">Leave the code blank to pick any nearby printer whose name starts with P1. Close the phone app first. The printer sleeps after about 15 minutes.</p>
+    <div id="scan">
+      <video id="camera" playsinline muted></video>
+      <div class="bar"><button id="scan-stop" class="ghost" type="button">Stop scanning</button></div>
+    </div>
+  </section>
+
+  <h2>Order</h2>
+  <textarea id="order" placeholder="1. Ice latte 20% (Aya)&#10;2. Ice latte 50% (Rith) Size L&#10;3. Red lemon tea (Soriya)"></textarea>
+  <div class="bar">
+    <button id="read" class="ghost" type="button">Read orders</button>
+    <button id="add" class="ghost" type="button">Add a label</button>
+  </div>
+  <p class="hint">A line is a drink, then a percent only if it was written, a name in parentheses, and Size S, M, or L only if it was written. Nothing else is added.</p>
+
+  <h2 id="list-heading" hidden>Labels</h2>
+  <div id="list"></div>
+</main>
+
+<div class="dock">
+  <p id="count">No labels yet</p>
+  <div class="bar">
+    <button id="copy" class="ghost" type="button">Copy link</button>
+    <button id="print" type="button">Connect and print</button>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
