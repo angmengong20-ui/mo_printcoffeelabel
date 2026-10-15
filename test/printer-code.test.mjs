@@ -32,11 +32,11 @@ test("filters stay on the named printer", () => {
 test("printer errors stay usable", () => {
   const missed = new Error("User cancelled the requestDevice() chooser.");
   missed.name = "NotFoundError";
-  assert.match(printErrorMessage(missed), /Printer not found/);
+  assert.match(printErrorMessage(missed), /No printer was chosen/);
   const blocked = new Error("blocked");
   blocked.name = "NotAllowedError";
   assert.match(printErrorMessage(blocked), /blocked Bluetooth/);
   const dropped = new Error("disconnected");
   dropped.name = "NetworkError";
-  assert.match(printErrorMessage(dropped, true), /Tap Connect and print again/);
+  assert.match(printErrorMessage(dropped, true), /tap Change printer and pick it again/);
 });

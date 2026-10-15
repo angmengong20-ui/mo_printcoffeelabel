@@ -53,3 +53,14 @@ test("a batch stops at 40 labels", () => {
   assert.equal(batch.orders.length, 40);
   assert.equal(batch.omitted, 1);
 });
+
+test("menu spelling is restored and sugar levels run 0 to 125", async () => {
+  const { MENU, SUGAR_LEVELS, menuName } = await import("../public/menu.js");
+  assert.equal(menuName("iced  latte"), "Iced Latte");
+  assert.equal(menuName("HOT AMERICANO"), "Hot Americano");
+  assert.equal(menuName("Mango smoothie"), "Mango smoothie");
+  assert.deepEqual(SUGAR_LEVELS, ["0%", "25%", "50%", "75%", "100%", "125%"]);
+  const all = MENU.flatMap(([, drinks]) => drinks);
+  assert.equal(new Set(all).size, all.length);
+  assert.ok(all.every((drink) => !/[()（）]/.test(drink)));
+});

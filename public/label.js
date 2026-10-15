@@ -105,11 +105,32 @@ function fitDrink(ctx, text, maxW) {
     }
     if (best) return { lines: best.lines, size };
   }
-  const mid = Math.max(1, Math.floor(words.length / 2));
-  return {
-    lines: [words.slice(0, mid).join(" "), words.slice(mid).join(" ")],
-    size: 24,
-  };
+  for (const size of [24, 22, 20, 18, 16]) {
+    face(ctx, size, "black");
+    const lines = wrap(ctx, words, maxW);
+    if (lines.length <= 3 && lines.every((line) => ink(ctx, line).width <= maxW)) {
+      return { lines, size };
+    }
+  }
+  face(ctx, 16, "black");
+  return { lines: wrap(ctx, words, maxW).slice(0, 3), size: 16 };
+}
+
+/** Greedy word wrap at the current font. */
+function wrap(ctx, words, maxW) {
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ink(ctx, next).width > maxW) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 export function renderLabel(order, cafe = "") {

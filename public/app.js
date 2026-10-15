@@ -1,13 +1,17 @@
 import { cafeFromSearch, ordersFromHash, pageLink } from "./link.js";
 import { fontsReady, renderLabel } from "./label.js";
 import { MAX_LABELS, parseOrders, takeLabels } from "./orders.js";
-import { isMacAddress, printerFilters, printerNameFromCode } from "./printer-code.js";
+import { MENU, SUGAR_LEVELS, menuName } from "./menu.js";
+import { bitsFromCanvas, labelsPdf } from "./pdf.js";
+import { printerFilters } from "./printer-code.js";
 import { bluetoothAvailable, printCanvases, printErrorMessage, requestPrinter } from "./protocol.js";
 
 const CAFE_KEY = "mo-print-cafe";
 const PRINTER_KEY = "mo-print-printer";
-const NO_BLUETOOTH = "This browser can't reach the printer. Open the https page in Chrome, Edge, or Brave on a computer, or in Chrome on Android.";
+const NO_BLUETOOTH = "This browser can't reach the printer over Bluetooth (iPhone and Safari can't). Use Save PDF and print it from the printer's app, or open this page in Chrome on Android or a computer.";
 const SIZES = [["", "–"], ["S", "S"], ["M", "M"], ["L", "L"]];
+const OTHER = "__other";
+const ON_MENU = new Set(MENU.flatMap(([, drinks]) => drinks));
 
 const statusEl = document.querySelector("#status");
 const progressEl = document.querySelector("#progress");
@@ -16,28 +20,26 @@ const listEl = document.querySelector("#list");
 const listCount = document.querySelector("#list-count");
 const clearLabelsBtn = document.querySelector("#clear-labels");
 const cafeEl = document.querySelector("#cafe");
-const printerEl = document.querySelector("#printer");
 const orderEl = document.querySelector("#order");
 const printBtn = document.querySelector("#print");
 const copyBtn = document.querySelector("#copy");
+const pdfBtn = document.querySelector("#pdf");
+const connectBtn = document.querySelector("#connect");
+const forgetBtn = document.querySelector("#forget");
+const printerNameEl = document.querySelector("#printer-name");
+const printerDetail = document.querySelector("#printer-detail");
+const printerBox = document.querySelector("#printer-box");
 const setupEl = document.querySelector("#setup");
 const setupNote = document.querySelector("#setup-note");
 const chip = document.querySelector("#printer-chip");
 const chipText = document.querySelector("#printer-chip-text");
-const scanBox = document.querySelector("#scan");
-const camera = document.querySelector("#camera");
-
-let stream = null;
-let scanTimer = 0;
 let held = null;
+let savedName = localStorage.getItem(PRINTER_KEY) || localStorage.getItem("hamster-printer-name") || "";
 let printing = false;
 let rowId = 0;
 
 cafeEl.value = cafeFromSearch(location.search) || localStorage.getItem(CAFE_KEY) || "";
-printerEl.value = localStorage.getItem(PRINTER_KEY)
-  || localStorage.getItem("hamster-printer-name")
-  || "";
-setupEl.open = !cafeEl.value || !printerEl.value;
+setupEl.open = !cafeEl.value || !savedName;
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 document.querySelector("#read kbd").textContent = isMac ? "⌘↵" : "Ctrl↵";
@@ -57,13 +59,24 @@ function setProgress(done, total) {
 
 function updateSetup() {
   const cafe = cafeEl.value.trim();
-  const printer = printerEl.value.trim();
-  setupNote.textContent = `${cafe || "No cafe name"} · ${printer || "any P1 printer"}`;
-  chip.classList.toggle("set", Boolean(printer));
-  chip.classList.toggle("live", Boolean(held));
-  chipText.textContent = held
-    ? `${held.name || printer || "Printer"} · connected`
-    : printer || "Any P1 printer";
+  const name = held?.name || savedName;
+  const ready = Boolean(held);
+  setupNote.textContent = `${cafe || "No cafe name"} · ${name || "no printer yet"}`;
+  chip.classList.toggle("set", Boolean(name));
+  chip.classList.toggle("live", ready);
+  chipText.textContent = ready ? `${name || "Printer"} · ready` : name || "Not connected";
+  printerBox.classList.toggle("ready", ready);
+  printerNameEl.textContent = name || "Not connected";
+  printerDetail.textContent = ready
+    ? "Ready. Print sends straight to this printer."
+    : name
+      ? "Saved. Print will ask to reconnect once."
+      : bluetoothAvailable()
+        ? "Turn the printer on, then connect it once."
+        : "This browser can't connect. Use Save PDF instead.";
+  connectBtn.textContent = name ? "Change printer" : "Connect printer";
+  connectBtn.disabled = !bluetoothAvailable();
+  forgetBtn.hidden = !name;
 }
 
 function saveCafe() {
@@ -74,21 +87,13 @@ function saveCafe() {
   return cafe;
 }
 
-function savePrinter() {
-  if (isMacAddress(printerEl.value)) {
-    printerEl.value = "";
-    localStorage.removeItem(PRINTER_KEY);
-    setupEl.open = true;
-    setStatus("That is a hardware address. Type the name from the sticker. It starts with P1-.", true);
-    updateSetup();
-    return "";
+function keepPrinter(device) {
+  held = device;
+  if (device?.name) {
+    savedName = device.name;
+    localStorage.setItem(PRINTER_KEY, savedName);
   }
-  const name = printerNameFromCode(printerEl.value);
-  printerEl.value = name;
-  if (name) localStorage.setItem(PRINTER_KEY, name);
-  else localStorage.removeItem(PRINTER_KEY);
   updateSetup();
-  return name;
 }
 
 function readRow(row) {
@@ -129,6 +134,70 @@ function labeledInput(caption, name, value, extra = {}) {
   return wrap;
 }
 
+function option(value, text) {
+  const node = document.createElement("option");
+  node.value = value;
+  node.textContent = text ?? value;
+  return node;
+}
+
+function typedDrink(value) {
+  const input = document.createElement("input");
+  input.name = "drink";
+  input.value = value;
+  input.autocomplete = "off";
+  input.placeholder = "Type the drink";
+  return input;
+}
+
+/** A menu dropdown. A drink that is not on the menu stays as typed, and Other lets you type one. */
+function drinkField(value) {
+  const wrap = document.createElement("label");
+  wrap.className = "wide";
+  const span = document.createElement("span");
+  span.textContent = "Drink";
+  const select = document.createElement("select");
+  select.name = "drink";
+  select.append(option("", "Choose a drink…"));
+  if (value && !ON_MENU.has(value)) {
+    const group = document.createElement("optgroup");
+    group.label = "From the order";
+    group.append(option(value));
+    select.append(group);
+  }
+  for (const [title, drinks] of MENU) {
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const drink of drinks) group.append(option(drink));
+    select.append(group);
+  }
+  select.append(option(OTHER, "Other… type a drink"));
+  select.value = value || "";
+  select.addEventListener("change", () => {
+    if (select.value !== OTHER) return;
+    const input = typedDrink("");
+    select.replaceWith(input);
+    input.focus();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  wrap.append(span, select);
+  return wrap;
+}
+
+function sugarField(value) {
+  const wrap = document.createElement("label");
+  const span = document.createElement("span");
+  span.textContent = "Sugar";
+  const select = document.createElement("select");
+  select.name = "pct";
+  select.append(option("", "Not printed"));
+  if (value && !SUGAR_LEVELS.includes(value)) select.append(option(value));
+  for (const level of SUGAR_LEVELS) select.append(option(level));
+  select.value = value || "";
+  wrap.append(span, select);
+  return wrap;
+}
+
 function sizeField(value, id) {
   const set = document.createElement("fieldset");
   const legend = document.createElement("legend");
@@ -163,6 +232,7 @@ function updateCount() {
     printBtn.textContent = count === 0 ? "Print" : count === 1 ? "Print 1 label" : `Print ${count} labels`;
   }
   copyBtn.disabled = count === 0;
+  pdfBtn.disabled = count === 0;
 }
 
 function clearMarks() {
@@ -184,12 +254,10 @@ function rowView(order) {
   preview.append(canvas);
   const fields = document.createElement("div");
   fields.className = "fields";
-  const drink = labeledInput("Drink", "drink", order.drink || "", { placeholder: "Ice latte" });
-  drink.className = "wide";
   fields.append(
-    drink,
+    drinkField(order.drink || ""),
     labeledInput("Name", "who", order.who || "", { placeholder: "Optional" }),
-    labeledInput("Sweetness", "pct", order.pct || "", { placeholder: "e.g. 50%", inputMode: "decimal" }),
+    sugarField(order.pct || ""),
   );
   const size = sizeField(order.size || "", id);
   size.classList.add("wide");
@@ -215,17 +283,9 @@ function rowView(order) {
 
 function showOrders(orders, note) {
   listEl.replaceChildren();
-  orders.forEach((order) => listEl.appendChild(rowView(order)));
+  orders.forEach((order) => listEl.appendChild(rowView({ ...order, drink: menuName(order.drink) })));
   updateCount();
   if (note) setStatus(note);
-}
-
-async function stopScan() {
-  if (scanTimer) clearInterval(scanTimer);
-  scanTimer = 0;
-  scanBox.style.display = "none";
-  if (stream) stream.getTracks().forEach((track) => track.stop());
-  stream = null;
 }
 
 async function makeLabels() {
@@ -254,60 +314,54 @@ cafeEl.addEventListener("input", () => {
   for (const row of listEl.querySelectorAll(".order")) paint(row);
 });
 
-printerEl.addEventListener("change", () => {
-  const name = savePrinter();
-  if (held && held.name !== name) held = null;
-  updateSetup();
-});
-
 chip.addEventListener("click", () => {
   setupEl.open = true;
   setupEl.scrollIntoView({ behavior: "smooth", block: "start" });
-  printerEl.focus({ preventScroll: true });
+  connectBtn.focus({ preventScroll: true });
 });
 
-document.querySelector("#scan-start").addEventListener("click", async () => {
-  if (!("BarcodeDetector" in window)) {
-    setStatus("This browser can't scan. Type the code printed on the printer.", true);
+connectBtn.addEventListener("click", () => {
+  if (!bluetoothAvailable()) {
+    setStatus(NO_BLUETOOTH, true);
     return;
   }
+  let picking;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-      audio: false,
-    });
-  } catch {
-    setStatus("The camera did not open. Type the printer code instead.", true);
+    picking = requestPrinter("", printerFilters);
+  } catch (error) {
+    setStatus(printErrorMessage(error), true);
     return;
   }
-  camera.srcObject = stream;
-  await camera.play();
-  scanBox.style.display = "block";
-  setStatus("Point the camera at the barcode on the printer.", "busy");
-  const detector = new BarcodeDetector({
-    formats: ["qr_code", "code_128", "code_39", "ean_13", "data_matrix", "upc_a"],
-  });
-  scanTimer = setInterval(async () => {
-    if (!stream) return;
+  connectBtn.disabled = true;
+  setStatus("Pick the printer in the box that opened.", "busy");
+  void (async () => {
     try {
-      const codes = await detector.detect(camera);
-      if (!codes.length) return;
-      printerEl.value = codes[0].rawValue;
-      const name = savePrinter();
-      await stopScan();
-      if (name) setStatus(`Printer set to ${name}.`, "ok");
-    } catch {
-      /* keep looking */
+      const device = await picking;
+      setStatus(`Connecting to ${device.name || "the printer"}…`, "busy");
+      await device.gatt.connect();
+      keepPrinter(device);
+      setStatus(`Connected to ${device.name || "the printer"}. Ready to print.`, "ok");
+    } catch (error) {
+      setStatus(printErrorMessage(error), true);
+    } finally {
+      updateSetup();
     }
-  }, 200);
+  })();
 });
 
-document.querySelector("#scan-stop").addEventListener("click", () => {
-  void stopScan();
-  setStatus("Scanning stopped.");
-});
-window.addEventListener("pagehide", () => {
-  void stopScan();
+forgetBtn.addEventListener("click", async () => {
+  try {
+    if (held?.gatt?.connected) held.gatt.disconnect();
+    await held?.forget?.();
+  } catch {
+    /* the browser may not support forget */
+  }
+  held = null;
+  savedName = "";
+  localStorage.removeItem(PRINTER_KEY);
+  localStorage.removeItem("hamster-printer-name");
+  updateSetup();
+  setStatus("Printer forgotten. Connect it again before printing.");
 });
 
 document.querySelector("#read").addEventListener("click", () => {
@@ -347,6 +401,11 @@ document.querySelector("#add").addEventListener("click", async () => {
   updateCount();
   const drink = listEl.lastElementChild.querySelector('[name="drink"]');
   drink.focus();
+  try {
+    drink.showPicker?.();
+  } catch {
+    /* the browser only opens it from a direct tap */
+  }
 });
 
 copyBtn.addEventListener("click", async () => {
@@ -364,6 +423,56 @@ copyBtn.addEventListener("click", async () => {
   }
 });
 
+function pdfName(cafe) {
+  const now = new Date();
+  const two = (n) => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}`;
+  const base = (cafe || "coffee").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "coffee";
+  return `${base}-labels-${stamp}.pdf`;
+}
+
+pdfBtn.addEventListener("click", async () => {
+  const orders = ordersFromDom();
+  if (!orders.length) {
+    setStatus("Make the labels first, then save the PDF.", true);
+    return;
+  }
+  pdfBtn.disabled = true;
+  try {
+    await fontsReady();
+    const cafe = saveCafe();
+    const pages = orders.map((order) => bitsFromCanvas(renderLabel(order, cafe)));
+    const bytes = await labelsPdf(pages, { title: cafe ? `${cafe} labels` : "Coffee labels" });
+    const file = new File([bytes], pdfName(cafe), { type: "application/pdf" });
+    const count = orders.length === 1 ? "1 label" : `${orders.length} labels`;
+    if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: file.name });
+        setStatus(`PDF with ${count} shared. Print it from the label app at 40×30 mm.`, "ok");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          setStatus("Sharing cancelled.");
+          return;
+        }
+      }
+    }
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setStatus(`Saved ${file.name} (${count}). Open it in the label app and print at 40×30 mm.`, "ok");
+  } catch (error) {
+    setStatus(error?.message || "The PDF could not be made.", true);
+  } finally {
+    updateCount();
+  }
+});
+
 printBtn.addEventListener("click", () => {
   if (printing) return;
   const rows = filledRows();
@@ -372,11 +481,6 @@ printBtn.addEventListener("click", () => {
     setStatus("There is no label to print.", true);
     return;
   }
-  if (isMacAddress(printerEl.value)) {
-    savePrinter();
-    return;
-  }
-  const name = savePrinter();
   if (!bluetoothAvailable()) {
     setStatus(NO_BLUETOOTH, true);
     return;
@@ -385,11 +489,10 @@ printBtn.addEventListener("click", () => {
     setStatus("Open the https address. Bluetooth does not run from a plain http page.", true);
     return;
   }
-  void stopScan();
   let picking = null;
-  const reconnecting = Boolean(held && held.name === name);
+  const reconnecting = Boolean(held);
   try {
-    if (!reconnecting) picking = requestPrinter(name, printerFilters);
+    if (!reconnecting) picking = requestPrinter(savedName, printerFilters);
   } catch (error) {
     setStatus(printErrorMessage(error), true);
     return;
@@ -407,12 +510,7 @@ async function finishPrint(picking, orders, rows, reconnecting) {
     await fontsReady();
     const device = picking ? await picking : held;
     if (!device) throw new Error("Choose the printer first.");
-    held = device;
-    if (device.name && device.name !== printerEl.value) {
-      printerEl.value = device.name;
-      savePrinter();
-    }
-    updateSetup();
+    keepPrinter(device);
     const cafe = saveCafe();
     const canvases = orders.map((order) => renderLabel(order, cafe));
     const total = orders.length;
@@ -459,11 +557,10 @@ function mark(row, state) {
 
 async function loadRemembered() {
   if (!navigator.bluetooth?.getDevices) return;
-  const name = printerNameFromCode(printerEl.value);
-  if (!name) return;
+  if (!savedName) return;
   try {
     const list = await navigator.bluetooth.getDevices();
-    held = list.find((device) => device.name === name) || null;
+    held = list.find((device) => device.name === savedName) || null;
   } catch {
     held = null;
   }

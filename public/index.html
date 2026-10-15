@@ -19,7 +19,7 @@
     </div>
   </div>
   <button id="printer-chip" class="chip" type="button" aria-controls="setup">
-    <span class="dot" aria-hidden="true"></span><span id="printer-chip-text">No printer set</span>
+    <span class="dot" aria-hidden="true"></span><span id="printer-chip-text">Not connected</span>
   </button>
 </header>
 
@@ -35,17 +35,17 @@
         <input id="cafe" maxlength="40" autocomplete="organization" placeholder="Your cafe">
       </label>
       <div class="field">
-        <label for="printer"><span>Printer code <em>from the sticker on the printer</em></span></label>
-        <div class="with-btn">
-          <input id="printer" maxlength="40" autocomplete="off" spellcheck="false" placeholder="P1-1234567890">
-          <button id="scan-start" class="ghost" type="button">Scan</button>
+        <span class="field-label">Printer</span>
+        <div class="printer-box" id="printer-box">
+          <div class="printer-state">
+            <strong id="printer-name">Not connected</strong>
+            <small id="printer-detail">Turn the printer on, then connect it once.</small>
+          </div>
+          <button id="connect" type="button">Connect printer</button>
+          <button id="forget" class="link" type="button" hidden>Forget</button>
         </div>
       </div>
-      <p class="hint">Leave the code blank to pick any nearby P1 printer. Close the phone app first, since only one connection works at a time. The printer sleeps after about 15 minutes.</p>
-      <div id="scan">
-        <video id="camera" playsinline muted></video>
-        <div class="bar"><button id="scan-stop" class="ghost light" type="button">Stop scanning</button></div>
-      </div>
+      <p class="hint" id="printer-hint">Close the phone app first, since only one connection works at a time. The printer sleeps after about 15 minutes; wake it and tap Print again.</p>
     </div>
   </details>
 
@@ -83,6 +83,7 @@
     </div>
     <div class="bar">
       <button id="copy" class="ghost" type="button">Copy link</button>
+      <button id="pdf" class="ghost" type="button">Save PDF</button>
       <button id="print" class="primary" type="button" disabled>Print</button>
     </div>
   </div>

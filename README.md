@@ -8,14 +8,16 @@ The sticker is 40×30 mm, 320×240 dots. It shows the cafe name, the drink, a sw
 
 ## Use it
 
-Open the https address in **Chrome, Edge, or Brave** on a computer, or in **Chrome on Android**. Safari and iPhone browsers cannot reach this printer.
+Open the https address in **Chrome, Edge, or Brave** on a computer, or in **Chrome on Android**. Safari and every iPhone browser cannot reach a Bluetooth printer, so on an iPhone use **Save PDF** below.
 
 1. Type the cafe name you want at the top of the sticker.
-2. Type the printer code from its sticker. It usually looks like `P1-` plus digits. Leave it blank to choose any nearby printer whose name starts with `P1`.
-3. Paste the order. One drink per line, for example `Ice latte 50% (Rith) Size L`.
-4. Tap **Read orders** and check every sticker.
-5. Wake the printer and disconnect it in the phone app. Only one Bluetooth connection works at a time. The printer also goes to sleep after about 15 minutes.
-6. Tap **Connect and print** and pick the printer.
+2. Turn the printer on, close its phone app, and tap **Connect printer**. Pick the printer whose name starts with `P1`. The page remembers it.
+3. Paste the order. One drink per line, for example `Ice latte 50% (Rith) Size L`. Pasting makes the labels.
+4. Check every sticker, then tap **Print**. Each sticker has a drink dropdown with the Day Cha menu (`public/menu.js`), a sugar level from 0% to 125%, and S/M/L. A drink that is not on the menu stays as typed, and **Other…** lets you type one.
+
+If no printer is connected yet, **Print** opens the same chooser. Only one Bluetooth connection works at a time, and the printer sleeps after about 15 minutes.
+
+**Save PDF** makes one 40×30 mm page per sticker, the same picture the printer would burn. Print it from the printer's own app or any app that prints PDFs at 40×30 mm. On a phone it opens the share sheet.
 
 **Copy link** makes a link to this same page with the order in it. Open that link on the machine that will print.
 

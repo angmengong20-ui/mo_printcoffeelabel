@@ -210,7 +210,7 @@ export function printErrorMessage(error, duringReconnect) {
   const name = error?.name || "";
   const message = String(error?.message || "");
   if (name === "NotFoundError" || /cancel|not found|no device/i.test(message)) {
-    return "Printer not found. Turn it on, close the phone app, and check the code on the sticker.";
+    return "No printer was chosen. Turn it on, close the phone app, and try again.";
   }
   if (name === "NotSupportedError") {
     return "This browser can't use Bluetooth. Open the https page in Chrome, Edge, or Brave.";
@@ -220,7 +220,7 @@ export function printErrorMessage(error, duringReconnect) {
   }
   if (name === "NetworkError" || /disconnect/i.test(message)) {
     return duringReconnect
-      ? "The printer did not answer. Tap Connect and print again and pick it in the list. Wake it and close the phone app first."
+      ? "The printer did not answer. Wake it, close the phone app, then tap Change printer and pick it again."
       : "The printer disconnected. Wake it, close the phone app, and print again.";
   }
   return message || "The printer did not print.";
