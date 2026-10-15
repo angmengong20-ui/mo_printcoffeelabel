@@ -30,3 +30,14 @@ test("one 40x30 mm page per label with a valid xref", async () => {
 test("an empty batch is refused", async () => {
   await assert.rejects(labelsPdf([]), /no label/);
 });
+
+test("a JPEG page is embedded as DCTDecode at the label size", async () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
+  const pdf = text(await labelsPdf([{ width: 960, height: 720, jpeg }]));
+  assert.match(pdf, /\/Width 960 \/Height 720 \/ColorSpace \/DeviceRGB \/BitsPerComponent 8 \/Filter \/DCTDecode \/Length 9 /);
+  assert.match(pdf, /\/MediaBox \[0 0 113\.39 85\.04\]/);
+  assert.equal(pdf.charCodeAt(9), 0x25);
+  assert.equal(pdf.charCodeAt(10), 0xe2);
+  const start = Number(/startxref\n(\d+)/.exec(pdf)[1]);
+  assert.equal(pdf.slice(start, start + 4), "xref");
+});

@@ -1,8 +1,9 @@
 import { cafeFromSearch, ordersFromHash, pageLink } from "./link.js";
 import { fontsReady, renderLabel } from "./label.js";
 import { MAX_LABELS, parseOrders, takeLabels } from "./orders.js";
+import { ordersCsv } from "./csv.js";
 import { MENU, SUGAR_LEVELS, menuName } from "./menu.js";
-import { bitsFromCanvas, labelsPdf } from "./pdf.js";
+import { jpegFromCanvas, labelsPdf } from "./pdf.js";
 import { printerFilters } from "./printer-code.js";
 import { bluetoothAvailable, printCanvases, printErrorMessage, requestPrinter } from "./protocol.js";
 
@@ -23,7 +24,8 @@ const cafeEl = document.querySelector("#cafe");
 const orderEl = document.querySelector("#order");
 const printBtn = document.querySelector("#print");
 const copyBtn = document.querySelector("#copy");
-const pdfBtn = document.querySelector("#pdf");
+const saveBtn = document.querySelector("#save");
+const savePop = document.querySelector("#save-pop");
 const connectBtn = document.querySelector("#connect");
 const forgetBtn = document.querySelector("#forget");
 const printerNameEl = document.querySelector("#printer-name");
@@ -232,7 +234,8 @@ function updateCount() {
     printBtn.textContent = count === 0 ? "Print" : count === 1 ? "Print 1 label" : `Print ${count} labels`;
   }
   copyBtn.disabled = count === 0;
-  pdfBtn.disabled = count === 0;
+  saveBtn.disabled = count === 0;
+  if (count === 0) closeSave();
 }
 
 function clearMarks() {
@@ -423,40 +426,52 @@ copyBtn.addEventListener("click", async () => {
   }
 });
 
-function pdfName(cafe) {
+function fileBase(cafe) {
   const now = new Date();
   const two = (n) => String(n).padStart(2, "0");
   const stamp = `${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}-${two(now.getHours())}${two(now.getMinutes())}`;
   const base = (cafe || "coffee").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "coffee";
-  return `${base}-labels-${stamp}.pdf`;
+  return `${base}-labels-${stamp}`;
 }
 
-pdfBtn.addEventListener("click", async () => {
-  const orders = ordersFromDom();
-  if (!orders.length) {
-    setStatus("Make the labels first, then save the PDF.", true);
-    return;
+function closeSave() {
+  savePop.hidden = true;
+  saveBtn.setAttribute("aria-expanded", "false");
+}
+
+saveBtn.addEventListener("click", () => {
+  const open = savePop.hidden;
+  savePop.hidden = !open;
+  saveBtn.setAttribute("aria-expanded", String(open));
+  if (open) savePop.querySelector("button").focus();
+});
+
+document.addEventListener("click", (event) => {
+  if (!savePop.hidden && !event.target.closest(".save-menu")) closeSave();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !savePop.hidden) {
+    closeSave();
+    saveBtn.focus();
   }
-  pdfBtn.disabled = true;
-  try {
-    await fontsReady();
-    const cafe = saveCafe();
-    const pages = orders.map((order) => bitsFromCanvas(renderLabel(order, cafe)));
-    const bytes = await labelsPdf(pages, { title: cafe ? `${cafe} labels` : "Coffee labels" });
-    const file = new File([bytes], pdfName(cafe), { type: "application/pdf" });
-    const count = orders.length === 1 ? "1 label" : `${orders.length} labels`;
-    if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: file.name });
-        setStatus(`PDF with ${count} shared. Print it from the label app at 40×30 mm.`, "ok");
+});
+
+/** Share on a phone (so the files can go straight to the label app), download elsewhere. */
+async function deliver(files, what) {
+  if (matchMedia("(pointer: coarse)").matches && navigator.canShare?.({ files })) {
+    try {
+      await navigator.share({ files, title: files[0].name });
+      setStatus(`${what} shared. Print at 40×30 mm in the label app.`, "ok");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        setStatus("Sharing cancelled.");
         return;
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          setStatus("Sharing cancelled.");
-          return;
-        }
       }
     }
+  }
+  for (const file of files) {
     const url = URL.createObjectURL(file);
     const link = document.createElement("a");
     link.href = url;
@@ -465,13 +480,50 @@ pdfBtn.addEventListener("click", async () => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    setStatus(`Saved ${file.name} (${count}). Open it in the label app and print at 40×30 mm.`, "ok");
+  }
+  setStatus(`${what} saved to Downloads. Print at 40×30 mm in the label app.`, "ok");
+}
+
+async function saveAs(kind) {
+  closeSave();
+  const orders = ordersFromDom();
+  if (!orders.length) {
+    setStatus("Make the labels first, then save them.", true);
+    return;
+  }
+  saveBtn.disabled = true;
+  setStatus("Making the file…", "busy");
+  try {
+    await fontsReady();
+    const cafe = saveCafe();
+    const canvases = orders.map((order) => renderLabel(order, cafe));
+    const base = fileBase(cafe);
+    const count = orders.length === 1 ? "1 label" : `${orders.length} labels`;
+    if (kind === "csv") {
+      const file = new File([ordersCsv(orders, cafe)], `${base}.csv`, { type: "text/csv" });
+      await deliver([file], `Spreadsheet with ${count}`);
+    } else if (kind === "pdf") {
+      const pages = await Promise.all(canvases.map((canvas) => jpegFromCanvas(canvas)));
+      const bytes = await labelsPdf(pages, { title: cafe ? `${cafe} labels` : "Coffee labels" });
+      await deliver([new File([bytes], `${base}.pdf`, { type: "application/pdf" })], `PDF with ${count}`);
+    } else {
+      const files = await Promise.all(canvases.map(async (canvas, i) => {
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        const who = orders[i].who ? `-${orders[i].who.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : "";
+        return new File([blob], `${base}-${String(i + 1).padStart(2, "0")}${who}.png`, { type: "image/png" });
+      }));
+      await deliver(files, orders.length === 1 ? "1 picture" : `${orders.length} pictures`);
+    }
   } catch (error) {
-    setStatus(error?.message || "The PDF could not be made.", true);
+    setStatus(error?.message || "The file could not be made.", true);
   } finally {
     updateCount();
   }
-});
+}
+
+document.querySelector("#save-pdf").addEventListener("click", () => void saveAs("pdf"));
+document.querySelector("#save-png").addEventListener("click", () => void saveAs("png"));
+document.querySelector("#save-csv").addEventListener("click", () => void saveAs("csv"));
 
 printBtn.addEventListener("click", () => {
   if (printing) return;

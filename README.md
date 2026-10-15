@@ -19,6 +19,8 @@ If no printer is connected yet, **Print** opens the same chooser. Only one Bluet
 
 **Save PDF** makes one 40×30 mm page per sticker, the same picture the printer would burn. Print it from the printer's own app or any app that prints PDFs at 40×30 mm. On a phone it opens the share sheet.
 
+**Save → Spreadsheet (CSV)** writes one row per sticker with the columns `No, Cafe, Drink, Sugar, Name, Size`. In WePrint, make a 40×30 mm template with a text box for each field, open its Excel/CSV data printing, pick the file, and bind each text box to its column. WePrint then prints one label per row.
+
 **Copy link** makes a link to this same page with the order in it. Open that link on the machine that will print.
 
 The type on the sticker is [Inter](https://rsms.me/inter/), under the SIL Open Font License. The license is in `public/fonts/LICENSE.txt`. Khmer letters are not in that font.
